@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hitesh – Personal Growth Tracker</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#0f172a;color:#e5e7eb;margin:0}
+.app{max-width:420px;margin:auto;padding:16px}
+.card{background:#020617;border-radius:14px;padding:16px;margin-bottom:14px}
+h1{text-align:center;color:#38bdf8}
+input,select,textarea,button{width:100%;padding:10px;border-radius:10px;border:none;margin-top:8px}
+button{background:#38bdf8;color:#020617;font-weight:bold;cursor:pointer}
+.nav{display:flex;gap:8px;margin-bottom:12px}
+.nav button{flex:1;background:#1f2933;color:#e5e7eb}
+.hidden{display:none}
+canvas{width:100%;height:220px;background:#020617;border-radius:12px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:12px}
+.day{padding:8px;border-radius:8px;background:#1f2933;text-align:center}
+.day.good{background:#065f46}
+.day.avg{background:#374151}
+.day.bad{background:#7f1d1d}
+.score{font-size:22px;text-align:center;color:#22c55e}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>📈 Growth Tracker</h1>
+
+<!-- AUTH -->
+<div class="card" id="auth">
+  <h2>Login / Sign Up</h2>
+  <input id="name" placeholder="Name" />
+  <input id="email" placeholder="Email" />
+  <input id="pass" type="password" placeholder="Password" />
+  <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- NAV -->
+<div class="nav hidden" id="nav">
+  <button onclick="show('dashboard')">Dashboard</button>
+  <button onclick="show('entry')">Daily</button>
+  <button onclick="show('calendar')">Calendar</button>
+  <button onclick="show('goals')">Goals</button>
+  <button onclick="show('profile')">Profile</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="card hidden" id="dashboard">
+  <h2>Dashboard</h2>
+  <div id="dashStats"></div>
+  <canvas id="chart"></canvas>
+  <div id="analytics"></div>
+  <button onclick="exportCSV()">Export CSV</button>
+</div>
+
+<!-- ENTRY -->
+<div class="card hidden" id="entry">
+  <h2>Daily Entry</h2>
+  <input type="date" id="date" />
+  <input type="number" id="study" placeholder="Study Hours" />
+  <input type="number" id="skills" placeholder="Skill Hours" />
+  <select id="fitness"><option>No</option><option>Yes</option></select>
+  <select id="reading"><option>No</option><option>Yes</option></select>
+  <select id="social"><option>No</option><option>Yes</option></select>
+  <textarea id="topics" placeholder="Topics Completed"></textarea>
+  <textarea id="skilltopics" placeholder="Skills Practiced"></textarea>
+  <button onclick="calculateScore()">Calculate Life Score</button>
+  <button onclick="saveEntry()">Save Today</button>
+  <div class="score" id="result"></div>
+</div>
+
+<!-- CALENDAR -->
+<div class="card hidden" id="calendar">
+  <h2>Calendar</h2>
+  <div class="grid" id="cal"></div>
+</div>
+
+<!-- GOALS -->
+<div class="card hidden" id="goals">
+  <h2>Goals</h2>
+  <input type="number" id="gStudy" placeholder="Weekly Study Hours Target" />
+  <input type="number" id="gSkills" placeholder="Weekly Skill Hours Target" />
+  <input type="number" id="gScore" placeholder="Daily Life Score Target" />
+  <button onclick="saveGoals()">Save Goals</button>
+  <div id="goalStats"></div>
+</div>
+
+<!-- PROFILE -->
+<div class="card hidden" id="profile">
+  <h2>Profile</h2>
+  <p id="profileInfo"></p>
+  <button onclick="logout()">Logout</button>
+</div>
+</div>
+
+<script>
+// AUTH
+function signup(){ const u={name:name.value,email:email.value,pass:pass.value}; if(!u.email||!u.pass)return alert('Enter details'); localStorage.setItem('user',JSON.stringify(u)); alert('Signed up! Now login.'); }
+function login(){ const u=JSON.parse(localStorage.getItem('user')||'{}'); if(email.value===u.email&&pass.value===u.pass){ auth.classList.add('hidden'); nav.classList.remove('hidden'); show('dashboard'); date.value=new Date().toISOString().slice(0,10);} else alert('Invalid login'); }
+function logout(){ localStorage.removeItem('logged'); location.reload(); }
+
+function show(id){ ['dashboard','entry','calendar','goals','profile'].forEach(s=>document.getElementById(s).classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); if(id==='dashboard') renderDashboard(); if(id==='calendar') renderCalendar(); if(id==='profile') renderProfile(); if(id==='goals') renderGoals(); }
+
+// SCORE & STORAGE
+function calculateScore(){ let s=0; if(study.value>=2)s+=30; if(skills.value>=1)s+=25; if(fitness.value==='Yes')s+=15; if(reading.value==='Yes')s+=15; if(social.value==='No')s+=15; result.innerText=`⭐ Life Score: ${s} / 100`; return s; }
+function saveEntry(){ const e={date:date.value,study:+study.value||0,skills:+skills.value||0,fitness:fitness.value,reading:reading.value,social:social.value,score:calculateScore()}; const d=JSON.parse(localStorage.getItem('growthData')||'[]'); const i=d.findIndex(x=>x.date===e.date); if(i>=0)d[i]=e; else d.push(e); localStorage.setItem('growthData',JSON.stringify(d)); alert('Saved'); }
+
+// DASHBOARD & ANALYTICS
+function renderDashboard(){ const d=JSON.parse(localStorage.getItem('growthData')||'[]'); const avg=d.length?Math.round(d.reduce((a,b)=>a+b.score,0)/d.length):0; const best=d.length?Math.max(...d.map(x=>x.score)):0; const streak=calcStreak(d); dashStats.innerHTML=`<b>Total Days:</b> ${d.length} | <b>Average:</b> ${avg} | <b>Best:</b> ${best} | <b>Streak:</b> ${streak}`; analytics.innerHTML=`<b>Weekly Avg:</b> ${avgForDays(d,7)} | <b>Monthly Avg:</b> ${avgForDays(d,30)}`; drawChart(d.slice(-14)); }
+function drawChart(d){ const c=chart.getContext('2d'); c.clearRect(0,0,chart.width,chart.height); const w=chart.width,h=chart.height,m=20; c.strokeStyle='#38bdf8'; c.beginPath(); d.forEach((e,i)=>{ const x=m+i*(w-2*m)/Math.max(1,d.length-1); const y=h-m-(e.score/100)*(h-2*m); i?c.lineTo(x,y):c.moveTo(x,y); }); c.stroke(); }
+function avgForDays(d,n){ const r=d.slice(-n); if(!r.length) return 0; return Math.round(r.reduce((a,b)=>a+b.score,0)/r.length); }
+function calcStreak(d){ let s=0; const map=new Map(d.map(x=>[x.date,x.score])); let day=new Date(); while(true){ const k=day.toISOString().slice(0,10); if(map.has(k)) s++; else break; day.setDate(day.getDate()-1);} return s; }
+function exportCSV(){ const d=JSON.parse(localStorage.getItem('growthData')||'[]'); if(!d.length)return alert('No data'); let csv='date,study,skills,fitness,reading,social,score\n'; d.forEach(e=>csv+=`${e.date},${e.study},${e.skills},${e.fitness},${e.reading},${e.social},${e.score}\n`); const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='growth-data.csv'; a.click(); }
+
+// CALENDAR
+function renderCalendar(){ const d=JSON.parse(localStorage.getItem('growthData')||'[]'); cal.innerHTML=''; d.forEach(e=>{ const div=document.createElement('div'); div.className='day '+(e.score>=85?'good':e.score>=70?'avg':'bad'); div.innerText=e.date.split('-')[2]; cal.appendChild(div); }); }
+
+// GOALS
+function saveGoals(){ const g={study:+gStudy.value||0,skills:+gSkills.value||0,score:+gScore.value||0}; localStorage.setItem('goals',JSON.stringify(g)); renderGoals(); }
+function renderGoals(){ const g=JSON.parse(localStorage.getItem('goals')||'{}'); gStudy.value=g.study||''; gSkills.value=g.skills||''; gScore.value=g.score||''; const d=JSON.parse(localStorage.getItem('growthData')||'[]'); const last7=d.slice(-7); const wStudy=last7.reduce((a,b)=>a+(+b.study||0),0); const wSkills=last7.reduce((a,b)=>a+(+b.skills||0),0); const avg=d.length?Math.round(d.reduce((a,b)=>a+b.score,0)/d.length):0; goalStats.innerHTML=`This Week → Study ${wStudy}/${g.study||0} hrs, Skills ${wSkills}/${g.skills||0} hrs | Avg Score ${avg}/${g.score||0}`; }
+
+// PROFILE
+function renderProfile(){ const u=JSON.parse(localStorage.getItem('user')||'{}'); profileInfo.innerHTML=`<b>Name:</b> ${u.name||''}<br/><b>Email:</b> ${u.email||''}`; }
+// === NEW UPGRADES ===
+let theme = localStorage.getItem('theme')||'dark';
+applyTheme();
+function toggleTheme(){theme=theme==='dark'?'light':'dark';localStorage.setItem('theme',theme);applyTheme();}
+function applyTheme(){document.body.style.background=theme==='dark'?'#0f172a':'#f8fafc';document.body.style.color=theme==='dark'?'#e5e7eb':'#020617';}
+
+function setReminder(){const t=document.getElementById('remTime').value;localStorage.setItem('reminder',t);alert('Reminder set at '+t);} 
+function checkReminder(){const t=localStorage.getItem('reminder');if(!t)return;const now=new Date();const cur=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');if(cur===t)alert('⏰ Time to update your Growth Tracker!');}
+setInterval(checkReminder,60000);
+</script>
+
+</body>
+</html>
+ <!-- ## Build Android APK (Offline, Free)
+
+### Option: Cordova (Easiest)
+1. Install Node.js on PC
+2. Open Command Prompt and run:
+```
+npm install -g cordova
+```
+3. Create project:
+```
+cordova create growthapp com.hitesh.growth GrowthTracker
+cd growthapp
+cordova platform add android
+```
+4. Replace `www/index.html` with this file’s content (save as index.html)
+5. Build APK:
+```
+cordova build android
+```
+6. APK path:
+`platforms/android/app/build/outputs/apk/debug/app-debug.apk`
+
+### Option: Capacitor (Modern)
+```
+npm install -g @ionic/cli
+ionic start growth blank --type=custom
+cd growth
+npm install @capacitor/core @capacitor/cli
+npx cap init Growth com.hitesh.growth
+```
+Copy this file into `www/index.html`
+```
+npx cap add android
+npx cap open android
+```
+Build in Android Studio → Run → Generate APK
+
+### Phone Install
+- Enable **Install unknown apps**
+- Send APK to phone → Install
+
+### Tips
+- App works offline
+- Data stored on device
+- Add icon: replace `www/img/icon.png`
+- Change name: edit `config.xml`
+
+Say **“Make cloud sync”** to connect Firebase next.
+
+ 
